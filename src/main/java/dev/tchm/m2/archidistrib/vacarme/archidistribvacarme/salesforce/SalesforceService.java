@@ -1,19 +1,49 @@
 package dev.tchm.m2.archidistrib.vacarme.archidistribvacarme.salesforce;
 
+import org.modelmapper.ModelMapper;
+import org.modelmapper.TypeToken;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClient;
+
+import java.util.List;
 
 @Service
 public class SalesforceService implements ISalesforceService {
     @Value("${sf.organization}")
     private String targetOrganization;
     
-    public String getToken() throws Exception {
+    @Value("${sf.host}")
+    private String sfHost;
+    
+    private final ModelMapper modelMapper;
+
+    public SalesforceService(ModelMapper modelMapper) {
+        this.modelMapper = modelMapper;
+    }
+
+    private String getToken() throws Exception {
         if(System.getProperty("os.name").equalsIgnoreCase("Windows")) {
             throw new UnsupportedOperationException("Works only on UNIX platforms.");
         }
         
-        var process = new ProcessBuilder().command("/usr/bin/sh", "-c", "sf org display --target-org " + targetOrganization + " 2> /dev/null | grep 'Access Token' | tr -s ' ' | cut -f 4 -d ' '").start();
+        var process = new ProcessBuilder().command("/bin/sh", "-c", "sf org display --json --target-org " + targetOrganization + " | jq -r .result.accessToken").start();
+        process.waitFor();
         return new String(process.getInputStream().readAllBytes()).trim();
+    }
+
+    @Override
+    public List<SalesforceLead> getLeads() throws Exception {
+        var restClient = RestClient.builder()
+                .baseUrl(sfHost)
+                .defaultHeader("User-Agent", "VaCaRMe/1.0")
+                .defaultHeader("Authorization", "Bearer " + getToken())
+                .defaultHeader("Accept", "application.json")
+                .build();
+        
+        var resultsDTO = restClient.get().uri("/services/data/v45.0/query?q=SELECT+Phone,FirstName,LastName,Street,PostalCode,City,Country,Company,State,AnnualRevenue,CreationDate__c,ConvertedAccountId+FROM+Lead").retrieve().body(SalesforceLeadQueryResultsDTO.class);
+
+        assert resultsDTO != null;
+        return modelMapper.map(resultsDTO.getRecords(), new TypeToken<List<SalesforceLead>>() {}.getType());
     }
 }
