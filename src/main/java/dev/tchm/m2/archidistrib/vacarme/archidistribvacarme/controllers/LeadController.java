@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 @RestController
@@ -35,6 +36,21 @@ public class LeadController {
             for(var lead : client.findLeads(lowRevenue, highRevenue, state)) {
                 var mappedLead = modelMapper.map(lead, LeadDTO.class);
                 mappedLead.setSource("legacy");
+                
+                var name = lead.getName().split(" ");
+                
+                if(name.length != 0) {
+                    if(name.length == 1) {
+                        mappedLead.setLastName(lead.getName());
+                    } else {
+                        mappedLead.setFirstName(name[0]);
+                        
+                        name = Arrays.copyOfRange(name, 1, name.length);
+                        
+                        mappedLead.setLastName(String.join(" ", name));
+                    }
+                }
+                
                 leads.add(mappedLead);
             }
             
