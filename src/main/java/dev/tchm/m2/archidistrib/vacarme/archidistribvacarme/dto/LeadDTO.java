@@ -22,4 +22,5 @@ public class LeadDTO {
     private Integer annualRevenue;
     private String creationDate;
     private String source;
+    private GeoPointDTO geoPoint;
 }

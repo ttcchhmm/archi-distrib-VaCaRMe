@@ -1,6 +1,8 @@
 package dev.tchm.m2.archidistrib.vacarme.archidistribvacarme.controllers;
 
+import dev.tchm.m2.archidistrib.vacarme.archidistribvacarme.dto.GeoPointDTO;
 import dev.tchm.m2.archidistrib.vacarme.archidistribvacarme.dto.LeadDTO;
+import dev.tchm.m2.archidistrib.vacarme.archidistribvacarme.openstreetmap.OSMNominatimService;
 import dev.tchm.m2.archidistrib.vacarme.archidistribvacarme.salesforce.ISalesforceService;
 import dev.tchm.m2.archidistrib.vacarme.archidistribvacarme.thrift.ThriftService;
 import lombok.AllArgsConstructor;
@@ -21,6 +23,8 @@ public class LeadController {
     private final ThriftService thriftService;
     
     private final ModelMapper modelMapper;
+    
+    private final OSMNominatimService nominatimService;
     
     @GetMapping("/api/lead")
     public List<LeadDTO> getLeads(@RequestParam("lowRevenue") final double lowRevenue, @RequestParam("highRevenue") final double highRevenue, @RequestParam("state") final String state) throws Exception {
@@ -56,6 +60,13 @@ public class LeadController {
             
             return null;
         });
+        
+        for(var lead : leads) {
+            var result = nominatimService.search(lead.getCity(), lead.getCountry(), lead.getPostalCode(), lead.getStreet());
+            if(result != null) {
+                lead.setGeoPoint(modelMapper.map(result, GeoPointDTO.class));
+            }
+        }
         
         return leads;
     }
