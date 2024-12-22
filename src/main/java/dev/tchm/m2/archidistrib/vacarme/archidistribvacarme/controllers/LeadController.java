@@ -27,17 +27,20 @@ public class LeadController {
     private final OSMNominatimService nominatimService;
     
     @GetMapping("/api/lead")
-    public List<LeadDTO> getLeads(@RequestParam("lowRevenue") final double lowRevenue, @RequestParam("highRevenue") final double highRevenue, @RequestParam("state") final String state) throws Exception {
+    public List<LeadDTO> getLeads(@RequestParam(value = "lowRevenue", defaultValue = "0") final int lowRevenue, @RequestParam(value = "highRevenue", defaultValue = "0") final int highRevenue, @RequestParam(value = "state", defaultValue = "") final String state) throws Exception {
         var leads = new ArrayList<LeadDTO>();
         
-        for(var lead : salesforceService.getLeads()) {
+        var sfState = state.isEmpty() ? null : state;
+        var sfLow = lowRevenue == 0 ? null : lowRevenue;
+        var sfHigh = highRevenue == 0 ? null : highRevenue;
+        for(var lead : salesforceService.getLeads(sfLow, sfHigh, sfState)) {
             var mappedLead = modelMapper.map(lead, LeadDTO.class);
             mappedLead.setSource("salesforce");
             leads.add(mappedLead);
         }
         
         thriftService.client(client -> {
-            for(var lead : client.findLeads(lowRevenue, highRevenue, state)) {
+            for(var lead : client.findLeads(lowRevenue, highRevenue == 0 ? Integer.MAX_VALUE : highRevenue, state)) {
                 var mappedLead = modelMapper.map(lead, LeadDTO.class);
                 mappedLead.setSource("legacy");
                 
