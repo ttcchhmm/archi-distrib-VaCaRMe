@@ -33,7 +33,7 @@ public class SalesforceService implements ISalesforceService {
     }
 
     @Override
-    public List<SalesforceLead> getLeads() throws Exception {
+    public List<SalesforceLead> getLeads(Integer minRevenue, Integer maxRevenue, String state) throws Exception {
         var restClient = RestClient.builder()
                 .baseUrl(sfHost)
                 .defaultHeader("User-Agent", "VaCaRMe/1.0")
@@ -41,7 +41,39 @@ public class SalesforceService implements ISalesforceService {
                 .defaultHeader("Accept", "application.json")
                 .build();
         
-        var resultsDTO = restClient.get().uri("/services/data/v45.0/query?q=SELECT+Phone,FirstName,LastName,Street,PostalCode,City,Country,Company,State,AnnualRevenue,CreationDate__c,ConvertedAccountId+FROM+Lead").retrieve().body(SalesforceLeadQueryResultsDTO.class);
+        var query = new StringBuilder("SELECT Phone,FirstName,LastName,Street,PostalCode,City,Country,Company,State,AnnualRevenue,CreationDate__c,ConvertedAccountId FROM Lead");
+        
+        var isFirst = true;
+        if(minRevenue != null || maxRevenue != null || state != null) {
+            query.append(" WHERE");
+        }
+        
+        if(minRevenue != null) {
+            query.append(" AnnualRevenue > ").append(minRevenue.intValue());
+            isFirst = false;
+        }
+        
+        if(maxRevenue != null) {
+            if(!isFirst) {
+                query.append(" AND");
+            }
+            
+            query.append(" AnnualRevenue < ").append(maxRevenue.intValue());
+            isFirst = false;
+        }
+        
+        if(state != null) {
+            if(!isFirst) {
+                query.append(" AND");
+            }
+            
+            query.append(" State = '").append(state).append("'");
+            isFirst = false;
+        }
+
+        System.out.println(query);
+        
+        var resultsDTO = restClient.get().uri("/services/data/v45.0/query?q=" + query.toString().replace(' ', '+')).retrieve().body(SalesforceLeadQueryResultsDTO.class);
 
         assert resultsDTO != null;
         return modelMapper.map(resultsDTO.getRecords(), new TypeToken<List<SalesforceLead>>() {}.getType());
